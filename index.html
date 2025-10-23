@@ -8,7 +8,7 @@
     #viewer { width: 50vw; height: 100vh; background: #111; }
     #controls { width: 50vw; padding: 10px; box-sizing: border-box; background: #222; color: #fff; }
     #uvCanvas { width: 100%; height: 50%; border: 1px solid #555; background: #000; display: block; margin-top: 10px; }
-    button { padding: 8px 12px; margin-top: 10px; cursor: pointer; }
+    button { padding: 8px 12px; margin-top: 10px; cursor: pointer; display: block; }
   </style>
 </head>
 <body>
@@ -32,28 +32,29 @@ let api, scene, camera, renderer, light, mesh;
 async function init() {
   api = await XAtlasAPI({ locateFile: (file) => `./libs/${file}` });
 
-  // Cena
+  // Cena e câmera
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.z = 2;
 
+  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth / 2, window.innerHeight);
   document.getElementById('viewer').appendChild(renderer.domElement);
 
+  // Luz
   light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(1, 1, 2);
   scene.add(light);
 
   window.addEventListener('resize', onWindowResize);
 
-  // Lista de modelos na pasta 'models/' (adicione mais aqui)
+  // Lista de modelos (adicione ou altere os nomes aqui)
   const modelos = [
-    'remontado_.glb'
+    "remontado_.glb",
   ];
 
   const buttonsContainer = document.getElementById('modelButtons');
-
   modelos.forEach(nome => {
     const btn = document.createElement('button');
     btn.textContent = `Carregar ${nome}`;
@@ -61,24 +62,32 @@ async function init() {
     buttonsContainer.appendChild(btn);
   });
 
+  // Botão de exportação
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Exportar Modelo (GLB)';
+  exportBtn.addEventListener('click', exportarModelo);
+  buttonsContainer.appendChild(exportBtn);
+
   animate();
 }
 
+// Carregar modelo
 async function carregarModelo(caminho) {
   const loader = new GLTFLoader();
 
   if (mesh) scene.remove(mesh);
 
   loader.load(caminho, async (gltf) => {
-      mesh = gltf.scene;
-      scene.add(mesh);
-      await gerarUV(mesh);
-  }, undefined, (err) => {
-      console.error(err);
-      alert('Erro ao carregar o modelo: ' + caminho);
+    mesh = gltf.scene;
+    scene.add(mesh);
+    await gerarUV(mesh);
+  }, undefined, err => {
+    console.error(err);
+    alert('Erro ao carregar o modelo: ' + caminho);
   });
 }
 
+// Redimensionamento
 function onWindowResize() {
   camera.aspect = (window.innerWidth / 2) / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -91,9 +100,9 @@ function onWindowResize() {
   if (mesh) drawUV(mesh);
 }
 
+// Gerar UVs
 async function gerarUV(object3D) {
   const geometries = [];
-
   object3D.traverse(child => {
     if (child.isMesh && child.geometry) geometries.push(child.geometry);
   });
@@ -116,6 +125,7 @@ async function gerarUV(object3D) {
   drawUV(object3D);
 }
 
+// Desenhar UVs
 function drawUV(object3D) {
   const uvCanvas = document.getElementById('uvCanvas');
   const ctx = uvCanvas.getContext('2d');
@@ -125,8 +135,8 @@ function drawUV(object3D) {
 
   object3D.traverse(child => {
     if (!child.isMesh || !child.geometry.attributes.uv) return;
-
     const uvAttr = child.geometry.attributes.uv;
+
     for (let i = 0; i < uvAttr.count; i += 3) {
       const u0 = uvAttr.getX(i) * uvCanvas.width;
       const v0 = uvAttr.getY(i) * uvCanvas.height;
@@ -145,20 +155,14 @@ function drawUV(object3D) {
   });
 }
 
-// Botão para exportar modelo atual
-const exportBtn = document.createElement('button');
-exportBtn.textContent = 'Exportar Modelo (GLB)';
-exportBtn.addEventListener('click', () => {
+// Exportar modelo
+function exportarModelo() {
   if (!mesh) return alert('Nenhum modelo carregado.');
-
   const exporter = new GLTFExporter();
   exporter.parse(mesh, result => {
     let output;
-    if (result instanceof ArrayBuffer) {
-      output = result;
-    } else {
-      output = JSON.stringify(result, null, 2);
-    }
+    if (result instanceof ArrayBuffer) output = result;
+    else output = JSON.stringify(result, null, 2);
 
     const blob = new Blob([output], { type: 'application/octet-stream' });
     const link = document.createElement('a');
@@ -166,10 +170,9 @@ exportBtn.addEventListener('click', () => {
     link.download = 'model.gltf';
     link.click();
   }, { binary: true });
-});
+}
 
-document.getElementById('controls').appendChild(exportBtn);
-
+// Loop de animação
 function animate() {
   requestAnimationFrame(animate);
   if (mesh) mesh.rotation.y += 0.01;
@@ -178,6 +181,5 @@ function animate() {
 
 init();
 </script>
-
 </body>
 </html>
